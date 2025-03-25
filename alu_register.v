@@ -22,7 +22,7 @@ module alu_register #(parameter WIDTH = 8) (
                 3'b110: result_reg <=  ~first_i;
                 3'b111: result_reg <= (first_i < second_i) ? 1 : 0;
 
-                default: result_reg <= 0;
+                default: result_reg <= {WIDTH{1'b0}};
             endcase
         end
     end

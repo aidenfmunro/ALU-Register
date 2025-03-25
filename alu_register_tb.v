@@ -2,6 +2,7 @@
 
 module alu_register_tb;
     parameter WIDTH = 8;
+    parameter CLK_PERIOD = 10;
 
     reg clk;
     reg rst;
@@ -23,7 +24,7 @@ module alu_register_tb;
     // Clock generation
     initial begin
         clk = 0;
-        forever #5 clk = ~clk;
+        forever #(CLK_PERIOD/2) clk = ~clk;
     end
 
     initial begin
@@ -31,87 +32,64 @@ module alu_register_tb;
         $dumpvars;
     end
 
-    // Test procedure
-    initial begin
-        // Initialize inputs
-        rst = 1;
-        first = 0;
-        second = 0;
-        opcode = 0;
+    task test_operation;
+        input [2:0] op;
+        input [WIDTH-1:0] a;
+        input [WIDTH-1:0] b;
+        input [WIDTH-1:0] expected;
+        begin
+            opcode = op;
+            first = a;
+            second = b;
+            #(2*CLK_PERIOD); // Ждем 2 цикла. Почему?
+                             /*
+                                "Результат операции, исполняемой в текущий такт, сохранен
+                                 в регистре на следующий такт"
+                             */
+            if (result !== expected) begin
+                $display("Ошибка: opcode=%b, first=%h, second=%h",
+                        opcode, first, second);
+                $display("Ожидалось: %h, Получено: %h", expected, result);
+            end
+        end
+    endtask
 
-        // Reset the module
-        #10;
+    initial begin
+        // Reset
+        rst = 1;
+        #(2*CLK_PERIOD);
         rst = 0;
 
         // Test NAND operation
-        opcode = 3'b000;
-        first = 8'b10101010;
-        second = 8'b11001100;
-
-        #20;  // Wait 2 cycles. Why?
-              /*
-                "Результат операции, исполняемой в текущий такт, сохранен
-                 в регистре на следующий такт"
-              */
-
-        if (result !== ~(8'b10101010 & 8'b11001100)) $display("NAND test failed");
+        test_operation(3'b000, 8'b10101010, 8'b11001100, ~(8'b10101010 & 8'b11001100));
 
         // Test XOR operation
-        opcode = 3'b001;
-        first = 8'b11110000;
-        second = 8'b10101010;
-        #20;
-        if (result !== (8'b11110000 ^ 8'b10101010)) $display("XOR test failed");
+        test_operation(3'b001, 8'b11110000, 8'b10101010, (8'b11110000 ^ 8'b10101010));
 
         // Test ADD operation
-        opcode = 3'b010;
-        first = 8'd100;
-        second = 8'd50;
-        #20;
-        if (result !== 8'd150) $display("ADD test failed");
+        test_operation(3'b010, 8'd100, 8'd50, 8'd150);
+        test_operation(3'b010, 8'b11111111, 8'b00000001, 8'b00000000);
 
         // Test ASR operation (arithmetic shift right)
-        opcode = 3'b011;
-        first = 8'b10011001; // -103 in 2's complement
-        second = 2;
-        #20;
-        if (result !== 8'b11100110) $display("ASR test failed"); // -26 after shift
+        test_operation(3'b011, 8'b10011001, 2, 8'b11100110);
+        test_operation(3'b011, 8'h80, 7, 8'hFF);
 
         // Test OR operation
-        opcode = 3'b100;
-        first = 8'b00110011;
-        second = 8'b01010101;
-        #20;
-        if (result !== (8'b00110011 | 8'b01010101)) $display("OR test failed");
+        test_operation(3'b100, 8'b00110011, 8'b01010101, (8'b00110011 | 8'b01010101));
 
         // Test LSL operation (logical shift left)
-        opcode = 3'b101;
-        first = 8'b00001111;
-        second = 2;
-        #20;
-        if (result !== 8'b00111100) $display("LSL test failed");
+        test_operation(3'b101, 8'b00001111, 2, 8'b00111100);
 
         // Test NOT operation
-        opcode = 3'b110;
-        first = 8'b01010101;
-        #20;
-        if (result !== 8'b10101010) $display("NOT test failed");
+        test_operation(3'b110, 8'b01010101, 0, 8'b10101010);
 
         // Test LT operation (less than)
-        opcode = 3'b111;
-        first = 8'd50;
-        second = 8'd100;
-        #20;
-        if (result !== 8'b00000001) $display("LT test 1 failed");
-
-        first = 8'd100;
-        second = 8'd50;
-        #20;
-        if (result !== 8'b00000000) $display("LT test 2 failed");
+        test_operation(3'b111, 8'd50, 8'd100, 8'b00000001);
+        test_operation(3'b111, 8'd100, 8'd50, 8'b00000000);
 
         // Test reset
         rst = 1;
-        #20;
+        #(CLK_PERIOD/2);
         if (result !== 0) $display("Reset test failed");
 
         $display("All tests completed");
