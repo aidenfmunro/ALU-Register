@@ -41,11 +41,8 @@ module alu_register_tb;
             opcode = op;
             first = a;
             second = b;
-            #(2*CLK_PERIOD); // Ждем 2 цикла. Почему?
-                             /*
-                                "Результат операции, исполняемой в текущий такт, сохранен
-                                 в регистре на следующий такт"
-                             */
+            #(CLK_PERIOD);
+
             if (result !== expected) begin
                 $display("Ошибка: opcode=%b, first=%h, second=%h",
                         opcode, first, second);
